@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Product Billing System</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500&family=EB+Garamond:wght@400;600&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #74ebd5, #acb6e5);
+      font-family: 'Poppins', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .container {
+      background-color: white;
+      padding: 40px;
+      width: 500px;
+      box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.2);
+      border-radius: 15px;
+      text-align: center;
+      overflow-y: auto;
+      max-height: 90vh;
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+
+    .product-entry {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .product-entry input {
+      width: 48%;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #ddd;
+    }
+
+    .bill-name-input {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 5px;
+      border: 1px solid #ddd;
+    }
+
+    button {
+      width: 48%;
+      padding: 15px;
+      margin-top: 20px;
+      border: none;
+      border-radius: 8px;
+      background-color: #4a90e2;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      transition: 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #74ebd5;
+      transform: scale(1.05);
+    }
+
+    .success {
+      color: green;
+      margin-top: 15px;
+    }
+
+    .button-group {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    iframe {
+      margin-top: 20px;
+      width: 100%;
+      height: 400px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>Product Billing System</h1>
+
+    <input type="text" id="billName" class="bill-name-input" placeholder="Enter Bill Name" />
+
+    <div id="product-list"></div>
+
+    <button onclick="addProduct()">Add Product</button>
+
+    <div class="button-group">
+      <button onclick="generatePDF()">Preview PDF</button>
+      <button onclick="downloadPDF()">Download PDF</button>
+    </div>
+
+    <p id="message" class="success"></p>
+
+    <iframe id="pdfPreview" style="display:none;"></iframe>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <script>
+    function addProduct() {
+      const productList = document.getElementById('product-list');
+      const productEntry = document.createElement('div');
+      productEntry.classList.add('product-entry');
+      productEntry.innerHTML = `
+        <input type="text" placeholder="Product Name" class="product-name" required />
+        <input type="number" placeholder="Product Price" class="product-price" required />
+      `;
+      productList.appendChild(productEntry);
+    }
+
+    function getProductDetails() {
+      const names = document.querySelectorAll('.product-name');
+      const prices = document.querySelectorAll('.product-price');
+      let products = [];
+
+      for (let i = 0; i < names.length; i++) {
+        if (names[i].value && prices[i].value) {
+          products.push({
+            name: names[i].value,
+            price: parseFloat(prices[i].value).toFixed(2)
+          });
+        }
+      }
+      return products;
+    }
+
+    let pdfDoc;
+
+    function generatePDF() {
+      const billName = document.getElementById('billName').value || "Untitled Bill";
+      const products = getProductDetails();
+      if (products.length === 0) {
+          alert("Please enter at least one product.");
+          return;
+      }
+
+      const { jsPDF } = window.jspdf;
+      pdfDoc = new jsPDF();
+      const date = new Date().toLocaleString();
+
+      // Set font and title
+      pdfDoc.setFont('helvetica', 'bold');
+      pdfDoc.setFontSize(30);
+      pdfDoc.text("RECEIPT", 20, 20);
+
+      // Add bill details
+      pdfDoc.setFontSize(16);
+      pdfDoc.setFont('helvetica', 'normal');
+      pdfDoc.text(`Bill Name: ${billName}`, 20, 40);
+      pdfDoc.text(`Date: ${date}`, 20, 50);
+
+      // Add product details
+      let y = 70;
+      products.forEach((product, index) => {
+          const priceWithRupee = `Rs. ${product.price}`;
+          pdfDoc.text(`${index + 1}. ${product.name} - ${priceWithRupee}`, 20, y);
+          y += 10;
+      });
+
+      // Add total price
+      const totalPrice = products.reduce((acc, item) => acc + parseFloat(item.price), 0).toFixed(2);
+      pdfDoc.text(`Total: Rs. ${totalPrice}`, 20, y + 10);
+
+      // Preview the PDF
+      const pdfPreview = document.getElementById('pdfPreview');
+      pdfPreview.style.display = 'block';
+      const pdfDataUri = pdfDoc.output('datauristring');
+      pdfPreview.src = pdfDataUri;
+
+      document.getElementById('message').innerText = "PDF preview generated!";
+    }
+
+    function downloadPDF() {
+      if (!pdfDoc) {
+        alert("Please generate the PDF preview first.");
+        return;
+      }
+      const billName = document.getElementById('billName').value || "Untitled Bill";
+      pdfDoc.save(`${billName}.pdf`);
+      document.getElementById('message').innerText = "PDF downloaded successfully!";
+    }
+  </script>
+
+</body>
+</html>
