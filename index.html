@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Product Billing System</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500&family=EB+Garamond:wght@400;600&display=swap" rel="stylesheet">
-
   <style>
     body {
       margin: 0;
@@ -22,7 +21,7 @@
     .container {
       background-color: white;
       padding: 40px;
-      width: 500px;
+      width: 600px;
       box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.2);
       border-radius: 15px;
       text-align: center;
@@ -39,22 +38,37 @@
       display: flex;
       justify-content: space-between;
       margin-bottom: 10px;
+      flex-wrap: wrap;
     }
 
     .product-entry input {
-      width: 48%;
+      width: 18%;
       padding: 10px;
       border-radius: 5px;
       border: 1px solid #ddd;
+      margin-bottom: 5px;
     }
 
-    .bill-name-input {
+    .bill-name-input,
+    .address-input,
+    .date-input,
+    .heading-input,
+    .email-input,
+    .phone-input {
       width: 100%;
       padding: 10px;
       margin-bottom: 10px;
       border-radius: 5px;
       border: 1px solid #ddd;
     }
+
+    .invoice-input {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 5px;
+  border: 1px solid #ddd;
+}
 
     button {
       width: 48%;
@@ -99,7 +113,13 @@
   <div class="container">
     <h1>Product Billing System</h1>
 
+    <input type="text" id="heading" class="heading-input" placeholder="Enter Company/Organization Name" />
+    <input type="text" id="invoiceNumber" class="invoice-input" placeholder="Enter Invoice Number" />
     <input type="text" id="billName" class="bill-name-input" placeholder="Enter Bill Name" />
+    <input type="text" id="address" class="address-input" placeholder="Enter Address" />
+    <input type="email" id="email" class="email-input" placeholder="Enter Email" />
+    <input type="tel" id="phone" class="phone-input" placeholder="Enter Phone Number" />
+    <input type="text" id="dateInput" class="date-input" placeholder="Enter Date (e.g., 25 Oct 2024)" />
 
     <div id="product-list"></div>
 
@@ -125,21 +145,43 @@
       productEntry.classList.add('product-entry');
       productEntry.innerHTML = `
         <input type="text" placeholder="Product Name" class="product-name" required />
-        <input type="number" placeholder="Product Price" class="product-price" required />
+        <input type="number" placeholder="Quantity" class="product-quantity" required />
+        <input type="text" placeholder="Per (e.g., pcs, liters)" class="product-per" required />
+        <input type="number" placeholder="Rate" class="product-rate" step="0.01" required />
+        <input type="number" placeholder="Amount" class="product-amount" readonly />
       `;
       productList.appendChild(productEntry);
+
+      const quantityInput = productEntry.querySelector('.product-quantity');
+      const rateInput = productEntry.querySelector('.product-rate');
+      const amountInput = productEntry.querySelector('.product-amount');
+
+      const calculateAmount = () => {
+        const quantity = parseFloat(quantityInput.value) || 0;
+        const rate = parseFloat(rateInput.value) || 0;
+        amountInput.value = (quantity * rate).toFixed(2);
+      };
+
+      quantityInput.addEventListener('input', calculateAmount);
+      rateInput.addEventListener('input', calculateAmount);
     }
 
     function getProductDetails() {
       const names = document.querySelectorAll('.product-name');
-      const prices = document.querySelectorAll('.product-price');
+      const quantities = document.querySelectorAll('.product-quantity');
+      const pers = document.querySelectorAll('.product-per');
+      const rates = document.querySelectorAll('.product-rate');
+      const amounts = document.querySelectorAll('.product-amount');
       let products = [];
 
       for (let i = 0; i < names.length; i++) {
-        if (names[i].value && prices[i].value) {
+        if (names[i].value && quantities[i].value && rates[i].value && pers[i].value) {
           products.push({
             name: names[i].value,
-            price: parseFloat(prices[i].value).toFixed(2)
+            quantity: parseInt(quantities[i].value),
+            per: pers[i].value,
+            rate: parseFloat(rates[i].value).toFixed(2),
+            amount: parseFloat(amounts[i].value).toFixed(2)
           });
         }
       }
@@ -148,60 +190,208 @@
 
     let pdfDoc;
 
-    function generatePDF() {
-      const billName = document.getElementById('billName').value || "Untitled Bill";
-      const products = getProductDetails();
-      if (products.length === 0) {
-          alert("Please enter at least one product.");
-          return;
+    function amountToWords(amount) {
+      const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"];
+      const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+      const teens = ["Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+      const scales = ["", "Thousand", "Lakh", "Crore"];
+      
+      function convertGroup(n) {
+        let str = "";
+        
+        if (n >= 100) {
+          str += ones[Math.floor(n / 100)] + " Hundred ";
+          n %= 100;
+          if (n) str += "and ";
+        }
+        
+        if (n >= 20) {
+          str += tens[Math.floor(n / 10)] + " ";
+          if (n % 10) str += ones[n % 10] + " ";
+        } else if (n >= 10) {
+          str += teens[n - 10] + " ";
+        } else if (n > 0) {
+          str += ones[n] + " ";
+        }
+        
+        return str;
       }
-
-      const { jsPDF } = window.jspdf;
-      pdfDoc = new jsPDF();
-      const date = new Date().toLocaleString();
-
-      // Set font and title
-      pdfDoc.setFont('helvetica', 'bold');
-      pdfDoc.setFontSize(30);
-      pdfDoc.text("RECEIPT", 20, 20);
-
-      // Add bill details
-      pdfDoc.setFontSize(16);
-      pdfDoc.setFont('helvetica', 'normal');
-      pdfDoc.text(`Bill Name: ${billName}`, 20, 40);
-      pdfDoc.text(`Date: ${date}`, 20, 50);
-
-      // Add product details
-      let y = 70;
-      products.forEach((product, index) => {
-          const priceWithRupee = `Rs. ${product.price}`;
-          pdfDoc.text(`${index + 1}. ${product.name} - ${priceWithRupee}`, 20, y);
-          y += 10;
-      });
-
-      // Add total price
-      const totalPrice = products.reduce((acc, item) => acc + parseFloat(item.price), 0).toFixed(2);
-      pdfDoc.text(`Total: Rs. ${totalPrice}`, 20, y + 10);
-
-      // Preview the PDF
-      const pdfPreview = document.getElementById('pdfPreview');
-      pdfPreview.style.display = 'block';
-      const pdfDataUri = pdfDoc.output('datauristring');
-      pdfPreview.src = pdfDataUri;
-
-      document.getElementById('message').innerText = "PDF preview generated!";
+      
+      if (amount === 0) return "Zero";
+      
+      const wholePart = Math.floor(amount);
+      const decimalPart = Math.round((amount - wholePart) * 100);
+      
+      let result = "";
+      if (wholePart > 0) {
+        result += convertGroup(wholePart);
+      }
+      
+      if (decimalPart > 0) {
+        result += "Rupees and " + convertGroup(decimalPart) + "Paise";
+      } else {
+        result += "Rupees";
+      }
+      
+      return result.trim();
     }
 
+    function generatePDF() {
+  const heading = document.getElementById('heading').value || "Company Name";
+  const invoiceNumber = document.getElementById('invoiceNumber').value || "";
+  const billName = document.getElementById('billName').value || "Untitled Bill";
+  const address = document.getElementById('address').value || "";
+  const email = document.getElementById('email').value || "";
+  const phone = document.getElementById('phone').value || "";
+  const manualDate = document.getElementById('dateInput').value || "";
+  const products = getProductDetails();
+  if (products.length === 0) {
+      alert("Please enter at least one product.");
+      return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  pdfDoc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageHeight = pdfDoc.internal.pageSize.height;
+
+  // Main Invoice Heading
+  pdfDoc.setFont('helvetica', 'bold');
+  pdfDoc.setFontSize(20);
+  pdfDoc.text("INVOICE", 105, 15, { align: 'center' });
+
+  // Company Details Box
+  pdfDoc.rect(10, 20, 190, 25); // Rectangle for company details
+  pdfDoc.setFontSize(14);
+  pdfDoc.text(heading, 105, 28, { align: 'center' });
+  
+  // Company details content
+  pdfDoc.setFontSize(10);
+  pdfDoc.setFont('helvetica', 'normal');
+  pdfDoc.text(address, 105, 35, { align: 'center' });
+  pdfDoc.text(`Email: ${email}    |    Phone: ${phone}`, 105, 40, { align: 'center' });
+
+  // Bill Details Box
+  const detailsStartY = 50;
+  const detailsHeight = 40;
+  
+  // Draw outer box for details
+  pdfDoc.rect(10, detailsStartY, 190, detailsHeight);
+  
+  // Draw vertical line to split the box
+  pdfDoc.line(105, detailsStartY, 105, detailsStartY + detailsHeight);
+  
+  // Draw horizontal lines to create rows
+  const rowHeight = detailsHeight / 2;
+  pdfDoc.line(10, detailsStartY + rowHeight, 200, detailsStartY + rowHeight);
+  
+  // Add details in the grid
+  pdfDoc.setFontSize(10);
+  pdfDoc.setFont('helvetica', 'bold');
+  
+  // Left side details
+  pdfDoc.text("Bill To:", 15, detailsStartY + 8);
+  pdfDoc.text("Invoice Number:", 15, detailsStartY + 28);
+  
+  pdfDoc.setFont('helvetica', 'normal');
+  pdfDoc.text(billName, 15, detailsStartY + 15);
+  pdfDoc.text(invoiceNumber, 15, detailsStartY + 35);
+  
+  // Right side details
+  pdfDoc.setFont('helvetica', 'bold');
+  pdfDoc.text("Invoice Date:", 110, detailsStartY + 8);
+  pdfDoc.text("Due Date:", 110, detailsStartY + 28);
+  
+  pdfDoc.setFont('helvetica', 'normal');
+  pdfDoc.text(manualDate, 110, detailsStartY + 15);
+  // Due date as 30 days from invoice date
+  const dueDate = new Date(manualDate);
+  dueDate.setDate(dueDate.getDate() + 30);
+  pdfDoc.text(dueDate.toLocaleDateString(), 110, detailsStartY + 35);
+
+  // Start products table below details box
+  const tableStartY = detailsStartY + detailsHeight + 10;
+  
+  // Define column positions
+  const cols = {
+    no: 10,
+    name: 25,
+    quantity: 100,
+    per: 120,
+    rate: 140,
+    amount: 160,
+    end: 200
+  };
+
+  // Table Headers
+  pdfDoc.setFontSize(10);
+  pdfDoc.setFont('helvetica', 'bold');
+  pdfDoc.text("Sl No.", 12, tableStartY);
+  pdfDoc.text("Description of Goods", 27, tableStartY);
+  pdfDoc.text("Quantity", 102, tableStartY);
+  pdfDoc.text("Per", 122, tableStartY);
+  pdfDoc.text("Rate", 142, tableStartY);
+  pdfDoc.text("Amount", 162, tableStartY);
+
+  // Draw header lines
+  pdfDoc.line(10, tableStartY + 3, 200, tableStartY + 3);
+
+  // Draw table with vertical lines
+  let yPos = tableStartY + 8;
+  let totalAmount = 0;
+  
+  pdfDoc.setFont('helvetica', 'normal');
+  products.forEach((product, index) => {
+    pdfDoc.text(String(index + 1), 12, yPos);
+    pdfDoc.text(product.name, 27, yPos);
+    pdfDoc.text(String(product.quantity), 102, yPos);
+    pdfDoc.text(product.per, 122, yPos);
+    pdfDoc.text(product.rate, 142, yPos);
+    pdfDoc.text(product.amount, 162, yPos);
+    yPos += 7;
+    totalAmount += parseFloat(product.amount);
+  });
+
+  // Draw all vertical lines from header to bottom
+  const startY = tableStartY + 3;
+  Object.values(cols).forEach(x => {
+    pdfDoc.line(x, startY, x, yPos);
+  });
+
+  // Bottom horizontal line
+  pdfDoc.line(10, yPos, 200, yPos);
+
+  // Calculate the position for bottom section
+  const signatureY = pageHeight - 30;
+  
+  // Add total amount and amount in words on the left side
+  pdfDoc.setFont('helvetica', 'bold');
+  pdfDoc.text("Total Amount:", 14, signatureY - 10);
+  pdfDoc.text(`Rs ${totalAmount.toFixed(2)}`, 14, signatureY - 5);
+  
+  pdfDoc.text("Amount in Words:", 14, signatureY);
+  pdfDoc.setFont('helvetica', 'normal');
+  const totalInWords = amountToWords(totalAmount);
+  pdfDoc.text(`Indian Rupees ${totalInWords} Only`, 14, signatureY + 5);
+
+  // Add signature on the right side
+  pdfDoc.setFont('helvetica', 'bold');
+  pdfDoc.text("Authorised Signatory", 160, signatureY);
+  pdfDoc.line(160, signatureY + 2, 200, signatureY + 2);
+
+  // Preview PDF in iframe
+  const pdfPreview = document.getElementById('pdfPreview');
+  pdfPreview.style.display = "block";
+  pdfPreview.src = pdfDoc.output('bloburl');
+}
     function downloadPDF() {
-      if (!pdfDoc) {
-        alert("Please generate the PDF preview first.");
-        return;
+      if (pdfDoc) {
+        const heading = document.getElementById('heading').value || "Company";
+        const date = document.getElementById('dateInput').value || "bill";
+        pdfDoc.save(`${heading}-${date}.pdf`);
+      } else {
+        alert("Please generate the PDF first");
       }
-      const billName = document.getElementById('billName').value || "Untitled Bill";
-      pdfDoc.save(`${billName}.pdf`);
-      document.getElementById('message').innerText = "PDF downloaded successfully!";
     }
   </script>
-
 </body>
 </html>
