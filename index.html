@@ -355,12 +355,14 @@ function generatePDF() {
     // Products Table
     const tableStartY = detailsStartY + detailsHeight + 10;
     
+    // Updated column positions to accommodate Total Amount
     const cols = {
-        no: 10,
-        name: 25,
-        quantity: 100,
-        per: 130,
-        rate: 160,
+        no: 10,        // Sl No.
+        name: 25,      // Description
+        quantity: 90,  // Quantity (moved left)
+        per: 110,      // Per (moved left)
+        rate: 130,     // Rate (moved left)
+        amount: 160,   // Total Amount (new column)
         end: 200
     };
 
@@ -369,9 +371,10 @@ function generatePDF() {
     pdfDoc.setFont('helvetica', 'bold');
     pdfDoc.text("Sl No.", 12, tableStartY);
     pdfDoc.text("Description of Goods", 27, tableStartY);
-    pdfDoc.text("Quantity", 102, tableStartY);
-    pdfDoc.text("Per", 132, tableStartY);
-    pdfDoc.text("Rate", 162, tableStartY);
+    pdfDoc.text("Qty", 92, tableStartY);
+    pdfDoc.text("Per", 112, tableStartY);
+    pdfDoc.text("Rate", 132, tableStartY);
+    pdfDoc.text("Amount", 162, tableStartY);
 
     let yPos = tableStartY + 8;
     let subtotalAmount = 0;
@@ -380,11 +383,14 @@ function generatePDF() {
     products.forEach((product, index) => {
         pdfDoc.text(String(index + 1), 12, yPos);
         pdfDoc.text(product.name, 27, yPos);
-        pdfDoc.text(String(product.quantity), 102, yPos);
-        pdfDoc.text(product.per, 132, yPos);
-        pdfDoc.text(product.rate, 162, yPos);
+        pdfDoc.text(String(product.quantity), 92, yPos);
+        pdfDoc.text(product.per, 112, yPos);
+        pdfDoc.text(product.rate, 132, yPos);
+        // Add total amount for each product
+        const totalAmount = (parseFloat(product.quantity) * parseFloat(product.rate)).toFixed(2);
+        pdfDoc.text(totalAmount, 162, yPos);
         yPos += 7;
-        subtotalAmount += parseFloat(product.amount);
+        subtotalAmount += parseFloat(totalAmount);
     });
 
     // Draw table lines
@@ -395,27 +401,29 @@ function generatePDF() {
     pdfDoc.line(10, tableStartY - 5, 200, tableStartY - 5);
     pdfDoc.line(10, finalYPos, 200, finalYPos);
 
-    // Transport notes if present
-    yPos += 10;
+    // Calculate bottom section starting position
+    const bottomStartY = pageHeight - 95;
+
+    // Transport notes section
+    let transportY = bottomStartY;
     if (transportNotes) {
         pdfDoc.setFontSize(10);
         pdfDoc.setFont('helvetica', 'bold');
-        pdfDoc.text("Transport & Packing Notes:", 14, yPos);
-        yPos += 7;
+        pdfDoc.text("Transport & Packing Notes:", 14, transportY);
+        transportY += 7;
         pdfDoc.setFont('helvetica', 'normal');
         const splitNotes = pdfDoc.splitTextToSize(transportNotes, 180);
-        pdfDoc.text(splitNotes, 14, yPos);
-        yPos += (splitNotes.length * 7);
+        pdfDoc.text(splitNotes, 14, transportY);
     }
 
-    // Amount section on left side
-    const bottomStartY = pageHeight - 70;
+    // Amount section
+    const amountStartY = bottomStartY + 25;
     pdfDoc.setFont('helvetica', 'bold');
     
     // Create a box for amounts
-    pdfDoc.rect(10, bottomStartY, 90, 40);
+    pdfDoc.rect(10, amountStartY, 90, 40);
     
-    let currentY = bottomStartY + 10;
+    let currentY = amountStartY + 10;
     
     // Add subtotal
     pdfDoc.text("Sub Total:", 15, currentY);
@@ -442,15 +450,15 @@ function generatePDF() {
     pdfDoc.text("Grand Total:", 15, currentY);
     pdfDoc.text(totalAmount.toFixed(2), 70, currentY);
 
-    // Amount in words directly below the amount box
+    // Amount in words
     pdfDoc.setFontSize(10);
-    pdfDoc.text("Amount in Words:", 15, bottomStartY + 45);
+    pdfDoc.text("Amount in Words:", 15, amountStartY + 45);
     pdfDoc.setFont('helvetica', 'normal');
     const totalInWords = amountToWords(totalAmount);
     const splitWords = pdfDoc.splitTextToSize(`Indian Rupees ${totalInWords} Only`, 180);
-    pdfDoc.text(splitWords, 15, bottomStartY + 52);
+    pdfDoc.text(splitWords, 15, amountStartY + 52);
 
-    // Signature on right
+    // Signature
     const signatureY = pageHeight - 20;
     pdfDoc.setFont('helvetica', 'bold');
     pdfDoc.text("Authorised Signatory", 160, signatureY);
@@ -461,7 +469,6 @@ function generatePDF() {
     pdfPreview.style.display = "block";
     pdfPreview.src = pdfDoc.output('bloburl');
 }
- 
 
     function downloadPDF() {
       if (pdfDoc) {
